@@ -28,7 +28,6 @@ import {
   mapNodes,
   mapRelationships
 } from '../../utils/mapper'
-import { Visualization } from './visualization/Visualization'
 
 export type GraphInteraction =
   | 'NODE_EXPAND'
@@ -43,7 +42,6 @@ export type GraphInteractionCallBack = (
 export class GraphEventHandlerModel {
   getNodeNeighbours: GetNodeNeighboursFn
   graph: GraphModel
-  visualization: Visualization
   onGraphModelChange: (stats: GraphStats) => void
   onItemMouseOver: (item: VizItem) => void
   onItemSelected: (item: VizItem) => void
@@ -52,7 +50,6 @@ export class GraphEventHandlerModel {
 
   constructor(
     graph: GraphModel,
-    visualization: Visualization,
     getNodeNeighbours: GetNodeNeighboursFn,
     onItemMouseOver: (item: VizItem) => void,
     onItemSelected: (item: VizItem) => void,
@@ -60,7 +57,6 @@ export class GraphEventHandlerModel {
     onGraphInteraction?: (event: GraphInteraction) => void
   ) {
     this.graph = graph
-    this.visualization = visualization
     this.getNodeNeighbours = getNodeNeighbours
     this.selectedItem = null
     this.onItemMouseOver = onItemMouseOver
@@ -81,22 +77,22 @@ export class GraphEventHandlerModel {
     this.selectedItem = item
     item.selected = true
 
-    this.visualization.update({
-      updateNodes: this.selectedItem.isNode,
-      updateRelationships: this.selectedItem.isRelationship,
-      restartSimulation: false
-    })
+    // this.visualization.update({
+    //   updateNodes: this.selectedItem.isNode,
+    //   updateRelationships: this.selectedItem.isRelationship,
+    //   restartSimulation: false
+    // })
   }
 
   deselectItem(): void {
     if (this.selectedItem) {
       this.selectedItem.selected = false
 
-      this.visualization.update({
-        updateNodes: this.selectedItem.isNode,
-        updateRelationships: this.selectedItem.isRelationship,
-        restartSimulation: false
-      })
+      // this.visualization.update({
+      //   updateNodes: this.selectedItem.isNode,
+      //   updateRelationships: this.selectedItem.isRelationship,
+      //   restartSimulation: false
+      // })
 
       this.selectedItem = null
     }
@@ -113,11 +109,11 @@ export class GraphEventHandlerModel {
     this.graph.removeConnectedRelationships(d)
     this.graph.removeNode(d)
     this.deselectItem()
-    this.visualization.update({
-      updateNodes: true,
-      updateRelationships: true,
-      restartSimulation: true
-    })
+    // this.visualization.update({
+    //   updateNodes: true,
+    //   updateRelationships: true,
+    //   restartSimulation: true
+    // })
     this.graphModelChanged()
     this.onGraphInteraction('NODE_DISMISSED')
   }
@@ -157,7 +153,6 @@ export class GraphEventHandlerModel {
     }
     d.expanded = true
     const graph = this.graph
-    const visualization = this.visualization
     const graphModelChanged = this.graphModelChanged.bind(this)
     this.getNodeNeighbours(
       d,
@@ -165,7 +160,7 @@ export class GraphEventHandlerModel {
       ({ nodes, relationships }) => {
         graph.addExpandedNodes(d, mapNodes(nodes))
         graph.addRelationships(mapRelationships(relationships, graph))
-        visualization.update({ updateNodes: true, updateRelationships: true })
+        // visualization.update({ updateNodes: true, updateRelationships: true })
         graphModelChanged()
       }
     )
@@ -175,7 +170,7 @@ export class GraphEventHandlerModel {
   nodeCollapse(d: NodeModel): void {
     d.expanded = false
     this.graph.collapseNode(d)
-    this.visualization.update({ updateNodes: true, updateRelationships: true })
+    // this.visualization.update({ updateNodes: true, updateRelationships: true })
     this.graphModelChanged()
   }
 
@@ -236,19 +231,19 @@ export class GraphEventHandlerModel {
   }
 
   bindEventHandlers(): void {
-    this.visualization
-      .on('nodeMouseOver', this.onNodeMouseOver.bind(this))
-      .on('nodeMouseOut', this.onItemMouseOut.bind(this))
-      .on('menuMouseOver', this.onMenuMouseOver.bind(this))
-      .on('menuMouseOut', this.onItemMouseOut.bind(this))
-      .on('relMouseOver', this.onRelationshipMouseOver.bind(this))
-      .on('relMouseOut', this.onItemMouseOut.bind(this))
-      .on('relationshipClicked', this.onRelationshipClicked.bind(this))
-      .on('canvasClicked', this.onCanvasClicked.bind(this))
-      .on('nodeClose', this.nodeClose.bind(this))
-      .on('nodeClicked', this.nodeClicked.bind(this))
-      .on('nodeDblClicked', this.nodeDblClicked.bind(this))
-      .on('nodeUnlock', this.nodeUnlock.bind(this))
-    this.onItemMouseOut()
+    // this.visualization
+    //   .on('nodeMouseOver', this.onNodeMouseOver.bind(this))
+    //   .on('nodeMouseOut', this.onItemMouseOut.bind(this))
+    //   .on('menuMouseOver', this.onMenuMouseOver.bind(this))
+    //   .on('menuMouseOut', this.onItemMouseOut.bind(this))
+    //   .on('relMouseOver', this.onRelationshipMouseOver.bind(this))
+    //   .on('relMouseOut', this.onItemMouseOut.bind(this))
+    //   .on('relationshipClicked', this.onRelationshipClicked.bind(this))
+    //   .on('canvasClicked', this.onCanvasClicked.bind(this))
+    //   .on('nodeClose', this.nodeClose.bind(this))
+    //   .on('nodeClicked', this.nodeClicked.bind(this))
+    //   .on('nodeDblClicked', this.nodeDblClicked.bind(this))
+    //   .on('nodeUnlock', this.nodeUnlock.bind(this))
+    // this.onItemMouseOut()
   }
 }

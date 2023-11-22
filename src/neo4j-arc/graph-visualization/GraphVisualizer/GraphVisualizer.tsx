@@ -219,31 +219,6 @@ export class GraphVisualizer extends Component<
     }
   }
 
-  componentDidUpdate(prevProps: GraphVisualizerProps): void {
-    if (!deepEquals(prevProps.graphStyleData, this.props.graphStyleData)) {
-      if (this.props.graphStyleData) {
-        const rebasedStyle = deepmerge(
-          this.defaultStyle,
-          this.props.graphStyleData
-        )
-        this.state.graphStyle.loadRules(rebasedStyle)
-        this.setState({
-          graphStyle: this.state.graphStyle,
-          styleVersion: this.state.styleVersion + 1
-        })
-      } else {
-        this.state.graphStyle.resetToDefault()
-        this.setState(
-          { graphStyle: this.state.graphStyle, freezeLegend: true },
-          () => {
-            this.setState({ freezeLegend: false })
-            this.props.updateStyle(this.state.graphStyle.toSheet())
-          }
-        )
-      }
-    }
-  }
-
   render(): JSX.Element {
     // This is a workaround to make the style reset to the same colors as when starting the browser with an empty style
     // If the legend component has the style it will ask the neoGraphStyle object for styling before the graph component,

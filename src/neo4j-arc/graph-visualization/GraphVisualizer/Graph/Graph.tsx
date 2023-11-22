@@ -45,7 +45,6 @@ import {
   getGraphStats,
   mapRelationships
 } from '../../utils/mapper'
-import { Visualization } from './visualization/Visualization'
 import { WheelZoomInfoOverlay } from './WheelZoomInfoOverlay'
 import { StyledSvgWrapper, StyledZoomButton, StyledZoomHolder } from './styled'
 import { ResizeObserver } from '@juggle/resize-observer'
@@ -81,29 +80,30 @@ type GraphState = {
   zoomInLimitReached: boolean
   zoomOutLimitReached: boolean
   displayingWheelZoomInfoMessage: boolean
+  zoomInLevel: number
 }
 
 export class Graph extends React.Component<GraphProps, GraphState> {
-  svgElement: React.RefObject<SVGSVGElement>
+  canvasElement: React.RefObject<HTMLCanvasElement>
   wrapperElement: React.RefObject<HTMLDivElement>
   wrapperResizeObserver: ResizeObserver
-  visualization: Visualization | null = null
 
   constructor(props: GraphProps) {
     super(props)
     this.state = {
       zoomInLimitReached: false,
       zoomOutLimitReached: false,
-      displayingWheelZoomInfoMessage: false
+      displayingWheelZoomInfoMessage: false,
+      zoomInLevel: 1
     }
-    this.svgElement = React.createRef()
+    this.canvasElement = React.createRef()
     this.wrapperElement = React.createRef()
 
     this.wrapperResizeObserver = new ResizeObserver(() => {
-      this.visualization?.resize(
-        this.props.isFullscreen,
-        !!this.props.wheelZoomRequiresModKey
-      )
+      // this.visualization?.resize(
+      //   this.props.isFullscreen,
+      //   !!this.props.wheelZoomRequiresModKey
+      // )
     })
   }
 
@@ -126,29 +126,17 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       wheelZoomRequiresModKey
     } = this.props
 
-    if (!this.svgElement.current) return
+    if (!this.canvasElement.current) return
 
     const measureSize = () => ({
-      width: this.svgElement.current?.parentElement?.clientWidth ?? 200,
-      height: this.svgElement.current?.parentElement?.clientHeight ?? 200
+      width: this.canvasElement.current?.parentElement?.clientWidth ?? 200,
+      height: this.canvasElement.current?.parentElement?.clientHeight ?? 200
     })
 
     const graph = createGraph(nodes, relationships)
-    this.visualization = new Visualization(
-      this.svgElement.current,
-      measureSize,
-      this.handleZoomEvent,
-      this.handleDisplayZoomWheelInfoMessage,
-      graph,
-      graphStyle,
-      isFullscreen,
-      wheelZoomRequiresModKey,
-      initialZoomToFit
-    )
 
     const graphEventHandler = new GraphEventHandlerModel(
       graph,
-      this.visualization,
       getNodeNeighbours,
       onItemMouseOver,
       onItemSelect,
@@ -158,7 +146,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     graphEventHandler.bindEventHandlers()
 
     onGraphModelChange(getGraphStats(graph))
-    this.visualization.resize(isFullscreen, !!wheelZoomRequiresModKey)
+    // this.visualization.resize(isFullscreen, !!wheelZoomRequiresModKey)
 
     if (setGraph) {
       setGraph(graph)
@@ -167,56 +155,57 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       getAutoCompleteCallback(
         (internalRelationships: BasicRelationship[], initialRun: boolean) => {
           if (initialRun) {
-            this.visualization?.init()
+            // this.visualization?.init()
             graph.addInternalRelationships(
               mapRelationships(internalRelationships, graph)
             )
             onGraphModelChange(getGraphStats(graph))
-            this.visualization?.update({
-              updateNodes: false,
-              updateRelationships: true,
-              restartSimulation: false
-            })
-            this.visualization?.precomputeAndStart()
+            // this.visualization?.update({
+            //   updateNodes: false,
+            //   updateRelationships: true,
+            //   restartSimulation: false
+            // })
+            // this.visualization?.precomputeAndStart()
             graphEventHandler.onItemMouseOut()
           } else {
             graph.addInternalRelationships(
               mapRelationships(internalRelationships, graph)
             )
             onGraphModelChange(getGraphStats(graph))
-            this.visualization?.update({
-              updateNodes: false,
-              updateRelationships: true,
-              restartSimulation: false
-            })
+            // this.visualization?.update({
+            //   updateNodes: false,
+            //   updateRelationships: true,
+            //   restartSimulation: false
+            // })
           }
         }
       )
     } else {
-      this.visualization?.init()
-      this.visualization?.precomputeAndStart()
+      // this.visualization?.init()
+      // this.visualization?.precomputeAndStart()
     }
-    if (assignVisElement) {
-      assignVisElement(this.svgElement.current, this.visualization)
-    }
+    // if (assignVisElement) {
+    //   // assignVisElement(this.canvasElement.current, this.visualization)
+    // }
 
-    this.wrapperResizeObserver.observe(this.svgElement.current)
+    this.wrapperResizeObserver.observe(this.canvasElement.current)
   }
 
   componentDidUpdate(prevProps: GraphProps): void {
+    this.updateGraphCanvas()
     if (this.props.isFullscreen !== prevProps.isFullscreen) {
-      this.visualization?.resize(
-        this.props.isFullscreen,
-        !!this.props.wheelZoomRequiresModKey
-      )
+      // this.visualization?.resize(
+      //   this.props.isFullscreen,
+      //   !!this.props.wheelZoomRequiresModKey
+      // )
     }
 
     if (this.props.styleVersion !== prevProps.styleVersion) {
-      this.visualization?.update({
-        updateNodes: true,
-        updateRelationships: true,
-        restartSimulation: false
-      })
+      // this.visualization?.update({
+      //   updateNodes: true,
+      //   updateRelationships: true,
+      //   restartSimulation: false
+      // })
     }
   }
 
@@ -251,15 +240,72 @@ export class Graph extends React.Component<GraphProps, GraphState> {
   }
 
   zoomInClicked = (): void => {
-    this.visualization?.zoomByType(ZoomType.IN)
+    this.zoomByType(ZoomType.IN)
   }
 
   zoomOutClicked = (): void => {
-    this.visualization?.zoomByType(ZoomType.OUT)
+    this.zoomByType(ZoomType.OUT)
   }
 
   zoomToFitClicked = (): void => {
-    this.visualization?.zoomByType(ZoomType.FIT)
+    this.zoomByType(ZoomType.FIT)
+  }
+
+  zoomByType = (zoomType: ZoomType): void => {
+    if (zoomType === ZoomType.IN) {
+      this.setState({ zoomInLevel: this.state.zoomInLevel * 1.3 })
+    } else if (zoomType === ZoomType.OUT) {
+      this.setState({ zoomInLevel: this.state.zoomInLevel * 0.7 })
+    } else if (zoomType === ZoomType.FIT) {
+      // this.zoomToFitViewport()
+      // this.adjustZoomMinScaleExtentToFitGraph(1)
+    }
+  }
+
+  updateGraphCanvas() {
+    const canvas = this.canvasElement.current
+    if (!canvas) {
+      console.error('null canvas')
+      return
+    }
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      console.error('null canvas 2d context')
+      return
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.scale(this.state.zoomInLevel, this.state.zoomInLevel)
+    console.log(this.state.zoomInLevel)
+    for (const [idx, node] of this.props.nodes.entries()) {
+      const label = node.labels[0]
+      const property = label ? node.properties[label] : 'NULL'
+      this.drawNode(ctx, property, idx * 100, 100, 50)
+    }
+
+    ctx.restore()
+  }
+
+  drawNode(
+    ctx: CanvasRenderingContext2D,
+    label: string,
+    x: number,
+    y: number,
+    radius: number
+  ): void {
+    ctx.beginPath()
+
+    ctx.arc(x, y, radius, 0, Math.PI * 2)
+    ctx.fillStyle = 'blue'
+    ctx.fill()
+    ctx.stroke()
+
+    ctx.fillStyle = 'white'
+    ctx.font = '20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(label, x, y, radius)
   }
 
   render(): JSX.Element {
@@ -274,9 +320,10 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       zoomOutLimitReached,
       displayingWheelZoomInfoMessage
     } = this.state
+
     return (
       <StyledSvgWrapper ref={this.wrapperElement}>
-        <svg className="neod3viz" ref={this.svgElement} />
+        <canvas ref={this.canvasElement} width={8192} height={8192} />
         <StyledZoomHolder offset={offset} isFullscreen={isFullscreen}>
           <StyledZoomButton
             aria-label={'zoom-in'}
