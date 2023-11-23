@@ -80,7 +80,7 @@ type GraphState = {
   zoomInLimitReached: boolean
   zoomOutLimitReached: boolean
   displayingWheelZoomInfoMessage: boolean
-  zoomInLevel: number
+  zoomLevel: number
 }
 
 export class Graph extends React.Component<GraphProps, GraphState> {
@@ -94,7 +94,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       zoomInLimitReached: false,
       zoomOutLimitReached: false,
       displayingWheelZoomInfoMessage: false,
-      zoomInLevel: 1
+      zoomLevel: 1
     }
     this.canvasElement = React.createRef()
     this.wrapperElement = React.createRef()
@@ -240,10 +240,12 @@ export class Graph extends React.Component<GraphProps, GraphState> {
   }
 
   zoomInClicked = (): void => {
+    console.log('in')
     this.zoomByType(ZoomType.IN)
   }
 
   zoomOutClicked = (): void => {
+    console.log('out')
     this.zoomByType(ZoomType.OUT)
   }
 
@@ -253,10 +255,15 @@ export class Graph extends React.Component<GraphProps, GraphState> {
 
   zoomByType = (zoomType: ZoomType): void => {
     if (zoomType === ZoomType.IN) {
-      this.setState({ zoomInLevel: this.state.zoomInLevel * 1.3 })
+      this.setState((state, _) => ({
+        zoomLevel: state.zoomLevel + 0.3
+      }))
     } else if (zoomType === ZoomType.OUT) {
-      this.setState({ zoomInLevel: this.state.zoomInLevel * 0.7 })
+      this.setState((state, _) => ({
+        zoomLevel: state.zoomLevel - 0.3
+      }))
     } else if (zoomType === ZoomType.FIT) {
+      this.setState({ zoomLevel: 1 })
       // this.zoomToFitViewport()
       // this.adjustZoomMinScaleExtentToFitGraph(1)
     }
@@ -274,10 +281,12 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       console.error('null canvas 2d context')
       return
     }
+    console.log('draw')
 
+    ctx.resetTransform()
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.scale(this.state.zoomInLevel, this.state.zoomInLevel)
-    console.log(this.state.zoomInLevel)
+    ctx.scale(this.state.zoomLevel, this.state.zoomLevel)
+    console.log(this.state.zoomLevel)
     for (const [idx, node] of this.props.nodes.entries()) {
       const label = node.labels[0]
       const property = label ? node.properties[label] : 'NULL'
@@ -323,7 +332,11 @@ export class Graph extends React.Component<GraphProps, GraphState> {
 
     return (
       <StyledSvgWrapper ref={this.wrapperElement}>
-        <canvas ref={this.canvasElement} width={8192} height={8192} />
+        <canvas
+          ref={this.canvasElement}
+          width={this.wrapperElement.current?.offsetWidth ?? 100}
+          height={this.wrapperElement.current?.offsetHeight ?? 100}
+        />
         <StyledZoomHolder offset={offset} isFullscreen={isFullscreen}>
           <StyledZoomButton
             aria-label={'zoom-in'}
