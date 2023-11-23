@@ -34,7 +34,7 @@ import { DetailsPaneProps } from './DefaultPanelContent/DefaultDetailsPane'
 import { OverviewPaneProps } from './DefaultPanelContent/DefaultOverviewPane'
 import { GraphStyleModel } from '../models/GraphStyle'
 import { GetNodeNeighboursFn, VizItem } from '../types'
-import { GraphStats } from '../utils/mapper'
+import { GraphStats, createGraph } from '../utils/mapper'
 import { GraphModel } from '../models/Graph'
 import { GraphInteractionCallBack } from './Graph/GraphEventHandlerModel'
 
@@ -231,8 +231,6 @@ export class GraphVisualizer extends Component<
       <StyledFullSizeContainer id="svg-vis">
         <Graph
           isFullscreen={this.props.isFullscreen}
-          relationships={this.state.relationships}
-          nodes={this.state.nodes}
           getNodeNeighbours={this.getNodeNeighbours.bind(this)}
           onItemMouseOver={this.onItemMouseOver.bind(this)}
           onItemSelect={this.onItemSelect.bind(this)}
@@ -242,7 +240,6 @@ export class GraphVisualizer extends Component<
           assignVisElement={this.props.assignVisElement}
           getAutoCompleteCallback={this.props.getAutoCompleteCallback}
           autocompleteRelationships={this.props.autocompleteRelationships}
-          setGraph={this.props.setGraph}
           offset={
             (this.state.nodePropertiesExpanded ? this.state.width + 8 : 0) + 8
           }
@@ -251,6 +248,7 @@ export class GraphVisualizer extends Component<
           disableWheelZoomInfoMessage={this.props.disableWheelZoomInfoMessage}
           initialZoomToFit={this.props.initialZoomToFit}
           onGraphInteraction={this.props.onGraphInteraction}
+          graph={createGraph(this.state.nodes, this.state.relationships)}
         />
         <NodeInspectorPanel
           graphStyle={graphStyle}

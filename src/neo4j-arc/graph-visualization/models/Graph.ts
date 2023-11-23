@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+import { ForceSimulation } from '../GraphVisualizer/Graph/visualization/ForceSimulation'
 import { NodeModel } from './Node'
 import { RelationshipModel } from './Relationship'
 
@@ -31,6 +32,7 @@ export class GraphModel {
   expandedNodeMap: NodeMap
   nodeMap: Record<string, NodeModel>
   relationshipMap: Record<string, RelationshipModel>
+  forceSimuluation: ForceSimulation //todo merge with graph? state mutation is super weird
 
   constructor() {
     this.addNodes = this.addNodes.bind(this)
@@ -50,6 +52,13 @@ export class GraphModel {
     this._nodes = []
     this.relationshipMap = {}
     this._relationships = []
+    this.forceSimuluation = new ForceSimulation(() => {})
+  }
+
+  update() {
+    //definately merge with this Lol. or something. Lol.
+    this.forceSimuluation.updateNodes(this)
+    this.forceSimuluation.updateRelationships(this)
   }
 
   nodes(): NodeModel[] {

@@ -27,7 +27,6 @@ import {
   ZoomToFitIcon
 } from '../../../common'
 
-import { GraphModel } from '../../models/Graph'
 import {
   GraphEventHandlerModel,
   GraphInteractionCallBack
@@ -39,24 +38,20 @@ import {
   ZoomLimitsReached,
   ZoomType
 } from '../../types'
-import {
-  GraphStats,
-  createGraph,
-  getGraphStats,
-  mapRelationships
-} from '../../utils/mapper'
+import { GraphStats, getGraphStats, mapRelationships } from '../../utils/mapper'
 import { WheelZoomInfoOverlay } from './WheelZoomInfoOverlay'
 import { StyledSvgWrapper, StyledZoomButton, StyledZoomHolder } from './styled'
 import { ResizeObserver } from '@juggle/resize-observer'
+import { GraphModel } from '../../models/Graph'
+import { ForceSimulation } from './visualization/ForceSimulation'
 
 export type GraphProps = {
   isFullscreen: boolean
-  relationships: BasicRelationship[]
-  nodes: BasicNode[]
   getNodeNeighbours: GetNodeNeighboursFn
   onItemMouseOver: (item: VizItem) => void
   onItemSelect: (item: VizItem) => void
   graphStyle: GraphStyleModel
+  graph: GraphModel
   styleVersion: number
   onGraphModelChange: (stats: GraphStats) => void
   assignVisElement: (svgElement: any, graphElement: any) => void
@@ -67,7 +62,6 @@ export type GraphProps = {
       initialRun: boolean
     ) => void
   ) => void
-  setGraph: (graph: GraphModel) => void
   offset: number
   wheelZoomRequiresModKey?: boolean
   wheelZoomInfoMessageEnabled?: boolean
@@ -116,13 +110,11 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       graphStyle,
       initialZoomToFit,
       isFullscreen,
-      nodes,
       onGraphInteraction,
       onGraphModelChange,
       onItemMouseOver,
       onItemSelect,
-      relationships,
-      setGraph,
+      graph,
       wheelZoomRequiresModKey
     } = this.props
 
@@ -132,8 +124,6 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       width: this.canvasElement.current?.parentElement?.clientWidth ?? 200,
       height: this.canvasElement.current?.parentElement?.clientHeight ?? 200
     })
-
-    const graph = createGraph(nodes, relationships)
 
     const graphEventHandler = new GraphEventHandlerModel(
       graph,
@@ -148,9 +138,6 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     onGraphModelChange(getGraphStats(graph))
     // this.visualization.resize(isFullscreen, !!wheelZoomRequiresModKey)
 
-    if (setGraph) {
-      setGraph(graph)
-    }
     if (autocompleteRelationships) {
       getAutoCompleteCallback(
         (internalRelationships: BasicRelationship[], initialRun: boolean) => {
@@ -270,6 +257,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
   }
 
   updateGraphCanvas() {
+    this.props.graph.update()
     const canvas = this.canvasElement.current
     if (!canvas) {
       console.error('null canvas')
@@ -287,10 +275,9 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.scale(this.state.zoomLevel, this.state.zoomLevel)
     console.log(this.state.zoomLevel)
-    for (const [idx, node] of this.props.nodes.entries()) {
-      const label = node.labels[0]
-      const property = label ? node.properties[label] : 'NULL'
-      this.drawNode(ctx, property, idx * 100, 100, 50)
+    for (const node of this.props.graph.nodes()) {
+      this.drawNode(ctx, 'LABEL', node.x, node.y, 50)
+      // console.log(node.x, node.y, node.radius)
     }
 
     ctx.restore()
