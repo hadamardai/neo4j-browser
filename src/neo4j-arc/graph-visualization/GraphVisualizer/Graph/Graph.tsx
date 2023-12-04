@@ -85,6 +85,7 @@ type GraphState = {
 
 export class Graph extends React.Component<GraphProps, GraphState> {
   svgElement: React.RefObject<SVGSVGElement>
+  canvasElement: React.RefObject<HTMLCanvasElement>
   wrapperElement: React.RefObject<HTMLDivElement>
   wrapperResizeObserver: ResizeObserver
   visualization: Visualization | null = null
@@ -98,6 +99,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     }
     this.svgElement = React.createRef()
     this.wrapperElement = React.createRef()
+    this.canvasElement = React.createRef()
 
     this.wrapperResizeObserver = new ResizeObserver(() => {
       this.visualization?.resize(
@@ -126,6 +128,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       wheelZoomRequiresModKey
     } = this.props
 
+    this.updateCanvas()
     if (!this.svgElement.current) return
 
     const measureSize = () => ({
@@ -204,6 +207,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
   }
 
   componentDidUpdate(prevProps: GraphProps): void {
+    this.updateCanvas()
     if (this.props.isFullscreen !== prevProps.isFullscreen) {
       this.visualization?.resize(
         this.props.isFullscreen,
@@ -218,6 +222,24 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         restartSimulation: false
       })
     }
+  }
+
+  updateCanvas(): void {
+    console.log('update canvas')
+    const canvas = this.canvasElement.current
+    if (!canvas) {
+      console.error('null canvas')
+      return
+    }
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      console.error('null canvas 2d context')
+      return
+    }
+
+    ctx.fillStyle = 'pink'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
   }
 
   componentWillUnmount(): void {
@@ -276,7 +298,11 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     } = this.state
     return (
       <StyledSvgWrapper ref={this.wrapperElement}>
-        <svg className="neod3viz" ref={this.svgElement} />
+        <canvas
+          ref={this.canvasElement}
+          width={this.wrapperElement.current?.offsetWidth ?? 100}
+          height={this.wrapperElement.current?.offsetHeight ?? 100}
+        />
         <StyledZoomHolder offset={offset} isFullscreen={isFullscreen}>
           <StyledZoomButton
             aria-label={'zoom-in'}
