@@ -128,8 +128,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       wheelZoomRequiresModKey
     } = this.props
 
-    this.updateCanvas()
-    if (!this.svgElement.current) return
+    if (!this.canvasElement.current) return
 
     const measureSize = () => ({
       width: this.svgElement.current?.parentElement?.clientWidth ?? 200,
@@ -138,7 +137,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
 
     const graph = createGraph(nodes, relationships)
     this.visualization = new Visualization(
-      this.svgElement.current,
+      this.canvasElement.current,
       measureSize,
       this.handleZoomEvent,
       this.handleDisplayZoomWheelInfoMessage,
@@ -203,7 +202,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       assignVisElement(this.svgElement.current, this.visualization)
     }
 
-    this.wrapperResizeObserver.observe(this.svgElement.current)
+    // this.wrapperResizeObserver.observe(this.svgElement.current)
   }
 
   componentDidUpdate(prevProps: GraphProps): void {
@@ -237,9 +236,6 @@ export class Graph extends React.Component<GraphProps, GraphState> {
       console.error('null canvas 2d context')
       return
     }
-
-    ctx.fillStyle = 'pink'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
   }
 
   componentWillUnmount(): void {

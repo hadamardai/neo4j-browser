@@ -52,10 +52,7 @@ import { ZoomLimitsReached, ZoomType } from '../../../types'
 type MeasureSizeFn = () => { width: number; height: number }
 
 export class Visualization {
-  private readonly root: Selection<SVGElement, unknown, BaseType, unknown>
-  private baseGroup: Selection<SVGGElement, unknown, BaseType, unknown>
-  private rect: Selection<SVGRectElement, unknown, BaseType, unknown>
-  private container: Selection<SVGGElement, unknown, BaseType, unknown>
+  private canvas: HTMLCanvasElement
   private geometry: GraphGeometryModel
   private zoomBehavior: ZoomBehavior<SVGElement, unknown>
   private zoomMinScaleExtent: number = ZOOM_MIN_SCALE
@@ -72,7 +69,7 @@ export class Visualization {
   private isZoomClick = false
 
   constructor(
-    element: SVGElement,
+    private canvasElement: HTMLCanvasElement,
     private measureSize: MeasureSizeFn,
     onZoomEvent: (limitsReached: ZoomLimitsReached) => void,
     onDisplayZoomWheelInfoMessage: () => void,
@@ -82,34 +79,10 @@ export class Visualization {
     public wheelZoomRequiresModKey?: boolean,
     private initialZoomToFit?: boolean
   ) {
-    this.root = d3Select(element)
-
     this.isFullscreen = isFullscreen
     this.wheelZoomRequiresModKey = wheelZoomRequiresModKey
 
-    // Remove the base group element when re-creating the visualization
-    this.root.selectAll('g').remove()
-    this.baseGroup = this.root.append('g').attr('transform', 'translate(0,0)')
-
-    this.rect = this.baseGroup
-      .append('rect')
-      .style('fill', 'none')
-      .style('pointer-events', 'all')
-      // Make the rect cover the whole surface, center of the svg viewbox is in (0,0)
-      .attr('x', () => -Math.floor(measureSize().width / 2))
-      .attr('y', () => -Math.floor(measureSize().height / 2))
-      .attr('width', '100%')
-      .attr('height', '100%')
-      .attr('transform', 'scale(1)')
-      // Background click event
-      // Check if panning is ongoing
-      .on('click', () => {
-        if (!this.draw) {
-          return this.trigger('canvasClicked')
-        }
-      })
-
-    this.container = this.baseGroup.append('g')
+    this.canvas = canvasElement
     this.geometry = new GraphGeometryModel(style)
 
     this.zoomBehavior = d3Zoom<SVGElement, unknown>()
@@ -125,12 +98,6 @@ export class Visualization {
           zoomOutLimitReached: currentZoomScale <= this.zoomMinScaleExtent
         }
         onZoomEvent(limitsReached)
-
-        return this.container
-          .transition()
-          .duration(isZoomClick ? 400 : 20)
-          .call(sel => (isZoomClick ? sel.ease(easeCubic) : sel))
-          .attr('transform', String(e.transform))
       })
       // This is the default implementation of wheelDelta function in d3-zoom v3.0.0
       // For some reasons typescript complains when trying to get it by calling zoomBehaviour.wheelDelta() instead
@@ -151,37 +118,25 @@ export class Visualization {
         return true
       })
 
-    this.root
-      .call(this.zoomBehavior)
-      // Single click is not panning
-      .on('click.zoom', () => (this.draw = false))
-      .on('dblclick.zoom', null)
-
     this.forceSimulation = new ForceSimulation(this.render.bind(this))
   }
 
   private render() {
     this.geometry.onTick(this.graph)
+    const canvasWidth = this.canvas.width
+    const canvasHeight = this.canvas.height
+    const ctx = this.canvas.getContext('2d')
+    if (!ctx) {
+      console.error('null ctx')
+      return
+    }
 
-    const nodeGroups = this.container
-      .selectAll<SVGGElement, NodeModel>('g.node')
-      .attr('transform', d => `translate(${d.x},${d.y})`)
-
-    nodeRenderer.forEach(renderer => nodeGroups.call(renderer.onTick, this))
-
-    const relationshipGroups = this.container
-      .selectAll<SVGGElement, RelationshipModel>('g.relationship')
-      .attr(
-        'transform',
-        d =>
-          `translate(${d.source.x} ${d.source.y}) rotate(${
-            d.naturalAngle + 180
-          })`
-      )
-
-    relationshipRenderer.forEach(renderer =>
-      relationshipGroups.call(renderer.onTick, this)
-    )
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+    const xOffset = canvasWidth / 2
+    const yOffset = canvasHeight / 2
+    this.graph
+      .nodes()
+      .forEach(node => this.drawNode(ctx, node, xOffset, yOffset))
   }
 
   private updateNodes() {
@@ -191,26 +146,37 @@ export class Visualization {
       updateRelationships: false
     })
 
-    const nodeGroups = this.container
-      .select('g.layer.nodes')
-      .selectAll<SVGGElement, NodeModel>('g.node')
-      .data(nodes, d => d.id)
-      .join('g')
-      .attr('class', 'node')
-      .attr('aria-label', d => `graph-node${d.id}`)
-      .call(nodeEventHandlers, this.trigger, this.forceSimulation.simulation)
-      .classed('selected', node => node.selected)
+    // nodeRenderer.forEach(renderer =>
+    //   nodeGroups.call(renderer.onGraphChange, this)
+    // )
 
-    nodeRenderer.forEach(renderer =>
-      nodeGroups.call(renderer.onGraphChange, this)
-    )
-
-    nodeMenuRenderer.forEach(renderer =>
-      nodeGroups.call(renderer.onGraphChange, this)
-    )
+    // nodeMenuRenderer.forEach(renderer =>
+    //   nodeGroups.call(renderer.onGraphChange, this)
+    // )
 
     this.forceSimulation.updateNodes(this.graph)
     this.forceSimulation.updateRelationships(this.graph)
+  }
+
+  drawNode(
+    ctx: CanvasRenderingContext2D,
+    node: NodeModel,
+    xOffset: number,
+    yOffset: number
+  ) {
+    const centerX = node.x + xOffset
+    const centerY = node.y + yOffset
+    ctx.beginPath()
+    ctx.arc(centerX, centerY, 50, 0, Math.PI * 2)
+    ctx.fillStyle = 'blue'
+    ctx.fill()
+    ctx.stroke()
+
+    ctx.fillStyle = 'white'
+    ctx.font = '20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('Node', centerX, centerY, 50)
   }
 
   private updateRelationships() {
@@ -220,40 +186,32 @@ export class Visualization {
       updateRelationships: true
     })
 
-    const relationshipGroups = this.container
-      .select('g.layer.relationships')
-      .selectAll<SVGGElement, RelationshipModel>('g.relationship')
-      .data(relationships, d => d.id)
-      .join('g')
-      .attr('class', 'relationship')
-      .call(relationshipEventHandlers, this.trigger)
-      .classed('selected', relationship => relationship.selected)
-
-    relationshipRenderer.forEach(renderer =>
-      relationshipGroups.call(renderer.onGraphChange, this)
-    )
+    // relationshipRenderer.forEach(renderer =>
+    //   relationshipGroups.call(renderer.onGraphChange, this)
+    // )
 
     this.forceSimulation.updateRelationships(this.graph)
-   // The onGraphChange handler does only repaint relationship color
+    // The onGraphChange handler does only repaint relationship color
     // not width and caption, since it requires taking into account surrounding data
-    // since the arrows have different bending depending on how the nodes are 
-    // connected. We work around that by doing an additional full render to get the 
-// new stylings
+    // since the arrows have different bending depending on how the nodes are
+    // connected. We work around that by doing an additional full render to get the
+    // new stylings
     this.render()
   }
 
   zoomByType = (zoomType: ZoomType): void => {
     this.draw = true
     this.isZoomClick = true
+    zoomType
 
-    if (zoomType === ZoomType.IN) {
-      this.zoomBehavior.scaleBy(this.root, 1.3)
-    } else if (zoomType === ZoomType.OUT) {
-      this.zoomBehavior.scaleBy(this.root, 0.7)
-    } else if (zoomType === ZoomType.FIT) {
-      this.zoomToFitViewport()
-      this.adjustZoomMinScaleExtentToFitGraph(1)
-    }
+    // if (zoomType === ZoomType.IN) {
+    //   this.zoomBehavior.scaleBy(this.root, 1.3)
+    // } else if (zoomType === ZoomType.OUT) {
+    //   this.zoomBehavior.scaleBy(this.root, 0.7)
+    // } else if (zoomType === ZoomType.FIT) {
+    //   this.zoomToFitViewport()
+    //   this.adjustZoomMinScaleExtentToFitGraph(1)
+    // }
   }
 
   private zoomToFitViewport = () => {
@@ -261,40 +219,32 @@ export class Visualization {
     if (scaleAndOffset) {
       const { scale, centerPointOffset } = scaleAndOffset
       // Do not zoom in more than zoom max scale for really small graphs
-      this.zoomBehavior.transform(
-        this.root,
-        zoomIdentity
-          .scale(Math.min(scale, ZOOM_MAX_SCALE))
-          .translate(centerPointOffset.x, centerPointOffset.y)
-      )
+      // this.zoomBehavior.transform(
+      //   this.root,
+      //   zoomIdentity
+      //     .scale(Math.min(scale, ZOOM_MAX_SCALE))
+      //     .translate(centerPointOffset.x, centerPointOffset.y)
+      // )
     }
   }
 
   private getZoomScaleFactorToFitWholeGraph = ():
     | { scale: number; centerPointOffset: { x: number; y: number } }
     | undefined => {
-    const graphSize = this.container.node()?.getBBox()
-    const availableWidth = this.root.node()?.clientWidth
-    const availableHeight = this.root.node()?.clientHeight
+    const graphWidth = this.canvasElement.width
+    const graphHeight = this.canvasElement.height
 
-    if (graphSize && availableWidth && availableHeight) {
-      const graphWidth = graphSize.width
-      const graphHeight = graphSize.height
+    const graphCenterX = graphWidth / 2
+    const graphCenterY = graphHeight / 2
 
-      const graphCenterX = graphSize.x + graphWidth / 2
-      const graphCenterY = graphSize.y + graphHeight / 2
+    if (graphWidth === 0 || graphHeight === 0) return
 
-      if (graphWidth === 0 || graphHeight === 0) return
+    const scale =
+      (1 - ZOOM_FIT_PADDING_PERCENT) / Math.max(graphWidth, graphHeight)
 
-      const scale =
-        (1 - ZOOM_FIT_PADDING_PERCENT) /
-        Math.max(graphWidth / availableWidth, graphHeight / availableHeight)
+    const centerPointOffset = { x: -graphCenterX, y: -graphCenterY }
 
-      const centerPointOffset = { x: -graphCenterX, y: -graphCenterY }
-
-      return { scale: scale, centerPointOffset: centerPointOffset }
-    }
-    return
+    return { scale: scale, centerPointOffset: centerPointOffset }
   }
 
   private adjustZoomMinScaleExtentToFitGraph = (
@@ -328,12 +278,6 @@ export class Visualization {
   }
 
   init(): void {
-    this.container
-      .selectAll('g.layer')
-      .data(['relationships', 'nodes'])
-      .join('g')
-      .attr('class', d => `layer ${d}`)
-
     this.updateNodes()
     this.updateRelationships()
 
@@ -346,7 +290,7 @@ export class Visualization {
 
     // chosen by *feel* (graph fitting guesstimate)
     const scale = -0.02364554 + 1.913 / (1 + (count / 12.7211) ** 0.8156444)
-    this.zoomBehavior.scaleBy(this.root, Math.max(0, scale))
+    // this.zoomBehavior.scaleBy(this.root, Math.max(0, scale))
   }
 
   precomputeAndStart(): void {
@@ -374,27 +318,23 @@ export class Visualization {
     this.trigger('updated')
   }
 
-  boundingBox(): DOMRect | undefined {
-    return this.container.node()?.getBBox()
-  }
-
   resize(isFullscreen: boolean, wheelZoomRequiresModKey: boolean): void {
     const size = this.measureSize()
     this.isFullscreen = isFullscreen
     this.wheelZoomRequiresModKey = wheelZoomRequiresModKey
 
-    this.rect
-      .attr('x', () => -Math.floor(size.width / 2))
-      .attr('y', () => -Math.floor(size.height / 2))
+    // this.rect
+    //   .attr('x', () => -Math.floor(size.width / 2))
+    //   .attr('y', () => -Math.floor(size.height / 2))
 
-    this.root.attr(
-      'viewBox',
-      [
-        -Math.floor(size.width / 2),
-        -Math.floor(size.height / 2),
-        size.width,
-        size.height
-      ].join(' ')
-    )
+    // this.root.attr(
+    //   'viewBox',
+    //   [
+    //     -Math.floor(size.width / 2),
+    //     -Math.floor(size.height / 2),
+    //     size.width,
+    //     size.height
+    //   ].join(' ')
+    // )
   }
 }
