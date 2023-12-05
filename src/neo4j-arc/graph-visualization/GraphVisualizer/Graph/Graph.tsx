@@ -139,8 +139,8 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     this.visualization = new Visualization(
       this.canvasElement.current,
       measureSize,
-      this.handleZoomEvent,
-      this.handleDisplayZoomWheelInfoMessage,
+      // this.handleZoomEvent,
+      // this.handleDisplayZoomWheelInfoMessage,
       graph,
       graphStyle,
       isFullscreen,

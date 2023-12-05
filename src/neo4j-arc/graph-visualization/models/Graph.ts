@@ -205,6 +205,43 @@ export class GraphModel {
     this._relationships = []
     this.expandedNodeMap = {}
   }
+
+  getBoundingBox(): {
+    width: number
+    height: number
+    center: { x: number; y: number }
+  } {
+    let top = undefined
+    let bottom = undefined
+    let left = undefined
+    let right = undefined
+    for (const node of this.nodes()) {
+      if (!left || node.x < left) {
+        left = node.x
+      }
+
+      if (!right || node.x > right) {
+        right = node.x
+      }
+
+      if (!top || node.y > top) {
+        top = node.y
+      }
+
+      if (!bottom || node.y < bottom) {
+        bottom = node.y
+      }
+    }
+
+    const width = left && right ? right - left : 0
+    const height = top && bottom ? top - bottom : 0
+    const center = { x: width / 2, y: height / 2 }
+    return {
+      width: width,
+      height: height,
+      center: center
+    }
+  }
 }
 
 export class NodePair {

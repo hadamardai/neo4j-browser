@@ -54,7 +54,7 @@ type MeasureSizeFn = () => { width: number; height: number }
 export class Visualization {
   private canvas: HTMLCanvasElement
   private geometry: GraphGeometryModel
-  private zoomBehavior: ZoomBehavior<SVGElement, unknown>
+  // private zoomBehavior: ZoomBehavior<SVGElement, unknown>
   private zoomMinScaleExtent: number = ZOOM_MIN_SCALE
   private callbacks: Record<
     string,
@@ -67,12 +67,14 @@ export class Visualization {
   // 'canvasClick' event when panning ends.
   private draw = false
   private isZoomClick = false
+  scale: number
+  centerPointOffset: { x: number; y: number } = { x: 0, y: 0 }
 
   constructor(
     private canvasElement: HTMLCanvasElement,
     private measureSize: MeasureSizeFn,
-    onZoomEvent: (limitsReached: ZoomLimitsReached) => void,
-    onDisplayZoomWheelInfoMessage: () => void,
+    // onZoomEvent: (limitsReached: ZoomLimitsReached) => void,
+    // onDisplayZoomWheelInfoMessage: () => void,
     private graph: GraphModel,
     public style: GraphStyleModel,
     public isFullscreen: boolean,
@@ -84,39 +86,7 @@ export class Visualization {
 
     this.canvas = canvasElement
     this.geometry = new GraphGeometryModel(style)
-
-    this.zoomBehavior = d3Zoom<SVGElement, unknown>()
-      .scaleExtent([this.zoomMinScaleExtent, ZOOM_MAX_SCALE])
-      .on('zoom', (e: D3ZoomEvent<SVGElement, unknown>) => {
-        const isZoomClick = this.isZoomClick
-        this.draw = true
-        this.isZoomClick = false
-
-        const currentZoomScale = e.transform.k
-        const limitsReached: ZoomLimitsReached = {
-          zoomInLimitReached: currentZoomScale >= ZOOM_MAX_SCALE,
-          zoomOutLimitReached: currentZoomScale <= this.zoomMinScaleExtent
-        }
-        onZoomEvent(limitsReached)
-      })
-      // This is the default implementation of wheelDelta function in d3-zoom v3.0.0
-      // For some reasons typescript complains when trying to get it by calling zoomBehaviour.wheelDelta() instead
-      // but it should be the same (and indeed it works at runtime).
-      // https://github.com/d3/d3-zoom/blob/1bccd3fd56ea24e9658bd7e7c24e9b89410c8967/README.md#zoom_wheelDelta
-      // Keps the zoom behavior constant for metam ctrl and shift key. Otherwise scrolling is faster with ctrl key.
-      .wheelDelta(
-        e => -e.deltaY * (e.deltaMode === 1 ? 0.05 : e.deltaMode ? 1 : 0.002)
-      )
-      .filter(e => {
-        if (e.type === 'wheel') {
-          const modKeySelected = e.metaKey || e.ctrlKey || e.shiftKey
-          if (this.wheelZoomRequiresModKey && !modKeySelected) {
-            onDisplayZoomWheelInfoMessage()
-            return false
-          }
-        }
-        return true
-      })
+    this.scale = 1
 
     this.forceSimulation = new ForceSimulation(this.render.bind(this))
   }
@@ -131,12 +101,21 @@ export class Visualization {
       return
     }
 
+    console.log('render', this.scale, this.centerPointOffset)
+    ctx.resetTransform()
     ctx.clearRect(0, 0, canvasWidth, canvasHeight)
-    const xOffset = canvasWidth / 2
-    const yOffset = canvasHeight / 2
-    this.graph
-      .nodes()
-      .forEach(node => this.drawNode(ctx, node, xOffset, yOffset))
+
+    ctx.fillStyle = 'pink'
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight)
+    ctx.translate(this.centerPointOffset.x, this.centerPointOffset.y)
+    ctx.scale(this.scale, this.scale)
+
+    this.graph.nodes().forEach(node => this.drawNode(ctx, node, 0, 0))
+
+    ctx.beginPath()
+    ctx.arc(0, 0, 20, 0, Math.PI * 2)
+    ctx.fillStyle = 'red'
+    ctx.fill()
   }
 
   private updateNodes() {
@@ -145,14 +124,6 @@ export class Visualization {
       updateNodes: true,
       updateRelationships: false
     })
-
-    // nodeRenderer.forEach(renderer =>
-    //   nodeGroups.call(renderer.onGraphChange, this)
-    // )
-
-    // nodeMenuRenderer.forEach(renderer =>
-    //   nodeGroups.call(renderer.onGraphChange, this)
-    // )
 
     this.forceSimulation.updateNodes(this.graph)
     this.forceSimulation.updateRelationships(this.graph)
@@ -204,45 +175,53 @@ export class Visualization {
     this.isZoomClick = true
     zoomType
 
-    // if (zoomType === ZoomType.IN) {
-    //   this.zoomBehavior.scaleBy(this.root, 1.3)
-    // } else if (zoomType === ZoomType.OUT) {
-    //   this.zoomBehavior.scaleBy(this.root, 0.7)
-    // } else if (zoomType === ZoomType.FIT) {
-    //   this.zoomToFitViewport()
-    //   this.adjustZoomMinScaleExtentToFitGraph(1)
-    // }
+    if (zoomType === ZoomType.IN) {
+    } else if (zoomType === ZoomType.OUT) {
+    } else if (zoomType === ZoomType.FIT) {
+      this.zoomToFitViewport()
+      this.adjustZoomMinScaleExtentToFitGraph(1)
+    }
   }
 
   private zoomToFitViewport = () => {
     const scaleAndOffset = this.getZoomScaleFactorToFitWholeGraph()
-    if (scaleAndOffset) {
-      const { scale, centerPointOffset } = scaleAndOffset
-      // Do not zoom in more than zoom max scale for really small graphs
-      // this.zoomBehavior.transform(
-      //   this.root,
-      //   zoomIdentity
-      //     .scale(Math.min(scale, ZOOM_MAX_SCALE))
-      //     .translate(centerPointOffset.x, centerPointOffset.y)
-      // )
-    }
+    this.scale = scaleAndOffset.scale
+    this.centerPointOffset = scaleAndOffset.centerPointOffset
+
+    console.log('zoom to fit', this.scale, this.centerPointOffset)
+    this.render()
   }
 
-  private getZoomScaleFactorToFitWholeGraph = ():
-    | { scale: number; centerPointOffset: { x: number; y: number } }
-    | undefined => {
-    const graphWidth = this.canvasElement.width
-    const graphHeight = this.canvasElement.height
+  private getZoomScaleFactorToFitWholeGraph(): {
+    scale: number
+    centerPointOffset: { x: number; y: number }
+  } {
+    const canvasWidth = this.canvasElement.width
+    const canvasHeight = this.canvasElement.height
 
-    const graphCenterX = graphWidth / 2
-    const graphCenterY = graphHeight / 2
+    if (canvasWidth === 0 || canvasHeight === 0) {
+      return { scale: 1.0, centerPointOffset: { x: 0, y: 0 } }
+    }
 
-    if (graphWidth === 0 || graphHeight === 0) return
+    const canvasCenterX = canvasWidth / 2
+    const canvasCenterY = canvasHeight / 2
 
-    const scale =
-      (1 - ZOOM_FIT_PADDING_PERCENT) / Math.max(graphWidth, graphHeight)
+    const graphBBox = this.graph.getBoundingBox()
+    console.log('bbox', graphBBox)
+    const graphWidth = graphBBox.width + 120
+    const graphHeight = graphBBox.height + 120
 
-    const centerPointOffset = { x: -graphCenterX, y: -graphCenterY }
+    const widthRatio = graphWidth > canvasWidth ? canvasWidth / graphWidth : 1
+    const heightRatio =
+      graphHeight > canvasHeight ? canvasHeight / graphHeight : 1
+
+    const scale = Math.min(widthRatio, heightRatio)
+
+    const graphCenter = graphBBox.center
+    const centerPointOffset = {
+      x: canvasCenterX,
+      y: canvasCenterY
+    }
 
     return { scale: scale, centerPointOffset: centerPointOffset }
   }
@@ -255,11 +234,11 @@ export class Visualization {
       ? scaleAndOffset.scale * padding_factor
       : this.zoomMinScaleExtent
     if (scaleToFitGraphWithPadding <= this.zoomMinScaleExtent) {
-      this.zoomMinScaleExtent = scaleToFitGraphWithPadding
-      this.zoomBehavior.scaleExtent([
-        scaleToFitGraphWithPadding,
-        ZOOM_MAX_SCALE
-      ])
+      // this.zoomMinScaleExtent = scaleToFitGraphWithPadding
+      // this.zoomBehavior.scaleExtent([
+      //   scaleToFitGraphWithPadding,
+      //   ZOOM_MAX_SCALE
+      // ])
     }
   }
 
