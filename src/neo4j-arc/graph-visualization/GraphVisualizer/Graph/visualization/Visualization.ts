@@ -68,7 +68,6 @@ export class Visualization {
   private draw = false
   private isZoomClick = false
   scale: number
-  centerPointOffset: { x: number; y: number } = { x: 0, y: 0 }
 
   constructor(
     private canvasElement: HTMLCanvasElement,
@@ -101,21 +100,12 @@ export class Visualization {
       return
     }
 
-    console.log('render', this.scale, this.centerPointOffset)
     ctx.resetTransform()
     ctx.clearRect(0, 0, canvasWidth, canvasHeight)
 
-    ctx.fillStyle = 'pink'
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight)
-    ctx.translate(this.centerPointOffset.x, this.centerPointOffset.y)
+    ctx.translate(canvasWidth / 2, canvasHeight / 2)
     ctx.scale(this.scale, this.scale)
-
-    this.graph.nodes().forEach(node => this.drawNode(ctx, node, 0, 0))
-
-    ctx.beginPath()
-    ctx.arc(0, 0, 20, 0, Math.PI * 2)
-    ctx.fillStyle = 'red'
-    ctx.fill()
+    this.graph.nodes().forEach(node => this.drawNode(ctx, node))
   }
 
   private updateNodes() {
@@ -129,16 +119,9 @@ export class Visualization {
     this.forceSimulation.updateRelationships(this.graph)
   }
 
-  drawNode(
-    ctx: CanvasRenderingContext2D,
-    node: NodeModel,
-    xOffset: number,
-    yOffset: number
-  ) {
-    const centerX = node.x + xOffset
-    const centerY = node.y + yOffset
+  drawNode(ctx: CanvasRenderingContext2D, node: NodeModel) {
     ctx.beginPath()
-    ctx.arc(centerX, centerY, 50, 0, Math.PI * 2)
+    ctx.arc(node.x, node.y, 50, 0, Math.PI * 2)
     ctx.fillStyle = 'blue'
     ctx.fill()
     ctx.stroke()
@@ -147,7 +130,7 @@ export class Visualization {
     ctx.font = '20px Arial'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText('Node', centerX, centerY, 50)
+    ctx.fillText('Node', node.x, node.y, 50)
   }
 
   private updateRelationships() {
@@ -184,30 +167,19 @@ export class Visualization {
   }
 
   private zoomToFitViewport = () => {
-    const scaleAndOffset = this.getZoomScaleFactorToFitWholeGraph()
-    this.scale = scaleAndOffset.scale
-    this.centerPointOffset = scaleAndOffset.centerPointOffset
-
-    console.log('zoom to fit', this.scale, this.centerPointOffset)
+    this.scale = this.getZoomScaleFactorToFitWholeGraph()
     this.render()
   }
 
-  private getZoomScaleFactorToFitWholeGraph(): {
-    scale: number
-    centerPointOffset: { x: number; y: number }
-  } {
+  private getZoomScaleFactorToFitWholeGraph(): number {
     const canvasWidth = this.canvasElement.width
     const canvasHeight = this.canvasElement.height
 
     if (canvasWidth === 0 || canvasHeight === 0) {
-      return { scale: 1.0, centerPointOffset: { x: 0, y: 0 } }
+      return 1.0
     }
 
-    const canvasCenterX = canvasWidth / 2
-    const canvasCenterY = canvasHeight / 2
-
     const graphBBox = this.graph.getBoundingBox()
-    console.log('bbox', graphBBox)
     const graphWidth = graphBBox.width + 120
     const graphHeight = graphBBox.height + 120
 
@@ -215,31 +187,24 @@ export class Visualization {
     const heightRatio =
       graphHeight > canvasHeight ? canvasHeight / graphHeight : 1
 
-    const scale = Math.min(widthRatio, heightRatio)
-
-    const graphCenter = graphBBox.center
-    const centerPointOffset = {
-      x: canvasCenterX,
-      y: canvasCenterY
-    }
-
-    return { scale: scale, centerPointOffset: centerPointOffset }
+    return Math.min(widthRatio, heightRatio)
   }
 
   private adjustZoomMinScaleExtentToFitGraph = (
     padding_factor = 0.75
   ): void => {
-    const scaleAndOffset = this.getZoomScaleFactorToFitWholeGraph()
-    const scaleToFitGraphWithPadding = scaleAndOffset
-      ? scaleAndOffset.scale * padding_factor
-      : this.zoomMinScaleExtent
-    if (scaleToFitGraphWithPadding <= this.zoomMinScaleExtent) {
-      // this.zoomMinScaleExtent = scaleToFitGraphWithPadding
-      // this.zoomBehavior.scaleExtent([
-      //   scaleToFitGraphWithPadding,
-      //   ZOOM_MAX_SCALE
-      // ])
-    }
+    padding_factor
+    // const scaleAndOffset = this.getZoomScaleFactorToFitWholeGraph()
+    // const scaleToFitGraphWithPadding = scaleAndOffset
+    //   ? scaleAndOffset.scale * padding_factor
+    //   : this.zoomMinScaleExtent
+    // if (scaleToFitGraphWithPadding <= this.zoomMinScaleExtent) {
+    //   // this.zoomMinScaleExtent = scaleToFitGraphWithPadding
+    //   // this.zoomBehavior.scaleExtent([
+    //   //   scaleToFitGraphWithPadding,
+    //   //   ZOOM_MAX_SCALE
+    //   // ])
+    // }
   }
 
   on = (event: string, callback: (...args: any[]) => void): this => {
